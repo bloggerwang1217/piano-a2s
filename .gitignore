@@ -167,3 +167,11 @@ joplin/
 humdrum-chopin-first-editions/
 kern/
 xml/
+
+# Workspace and output directories
+workspace/
+*.log
+asap_test_set/
+MV2H/
+# Temporary conversion files
+temp/
