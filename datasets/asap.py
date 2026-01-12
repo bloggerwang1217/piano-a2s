@@ -18,6 +18,13 @@ labels = LabelsMultiple(extended=True)
 SOS = labels.labels_map['<sos>']
 EOS = labels.labels_map['<eos>']
 
+# Tool paths for external commands
+PROJECT_ROOT = Path(__file__).parent.parent
+VEROVIO_PATH = str(PROJECT_ROOT / 'verovio' / 'tools' / 'verovio')
+VEROVIO_RESOURCE = str(PROJECT_ROOT / 'verovio' / 'data')
+EXTRACTX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'extractx')
+TIEFIX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'tiefix')
+
 class ProcessASAP(object):
     def __init__(self, hparams):
         self.hparams = hparams
@@ -94,6 +101,11 @@ class ProcessASAP(object):
                 target_path = os.path.join(feature_folder, 'target', f'{score_name}#{performance}.{i}.pkl')
                 lower_path = os.path.join(feature_folder, 'kern_lower', f'{score_name}#{performance}.{i}.krn')
                 upper_path = os.path.join(feature_folder, 'kern_upper', f'{score_name}#{performance}.{i}.krn')
+
+                # Skip if already processed (check final output file)
+                if os.path.exists(target_path):
+                    continue
+
                 # Save wav
                 try:
                     chunk_audio = audio[:, int(downbeats[i+1][0] * sample_rate): int(downbeats[i+6][0] * sample_rate)]
@@ -111,16 +123,13 @@ class ProcessASAP(object):
                     continue
 
                 # Save kern
-                command = f'verovio -f musicxml-hum -t hum {xml_path} -o {kern_path} >/dev/null 2>&1'
+                command = f'{VEROVIO_PATH} -r {VEROVIO_RESOURCE} -f musicxml-hum -t hum {xml_path} -o {kern_path} >/dev/null 2>&1'
                 status = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 if status.returncode != 0:
                     continue
-                elif status.stderr:
-                    if "Warning" in status.stderr:
-                        continue
                 try:
-                    os.system(f'extractx -s 1 {kern_path} > temp/{split}/lower.krn')
-                    os.system(f'extractx -s 2 {kern_path} > temp/{split}/upper.krn')
+                    os.system(f'{EXTRACTX_PATH} -s 1 {kern_path} > temp/{split}/lower.krn')
+                    os.system(f'{EXTRACTX_PATH} -s 2 {kern_path} > temp/{split}/upper.krn')
                     lower = Kern(Path(f'temp/{split}/lower.krn'))
                     upper = Kern(Path(f'temp/{split}/upper.krn'))
                     full = Kern(Path(kern_path))
@@ -141,7 +150,7 @@ class ProcessASAP(object):
                     kern.save(Path(kern_path))
                     try:
                         # Fix ties with tiefix command
-                        process = subprocess.run(['tiefix', kern_path],
+                        process = subprocess.run([TIEFIX_PATH, kern_path],
                                                 capture_output=True,
                                                 encoding='iso-8859-1')
                         if (process.returncode != 0):
@@ -202,7 +211,11 @@ class ProcessASAP(object):
 
     def _get_score_name_from_folder(self, folder):
         folder = folder.split('/')
-        folder = folder[folder.index('asap-dataset-master') + 1:]
+        # Support both 'asap-dataset' and 'asap-dataset-master'
+        if 'asap-dataset-master' in folder:
+            folder = folder[folder.index('asap-dataset-master') + 1:]
+        elif 'asap-dataset' in folder:
+            folder = folder[folder.index('asap-dataset') + 1:]
         return '#'.join(folder)
     
     def _get_smallest_subdirectories(self):

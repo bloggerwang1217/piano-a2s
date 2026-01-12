@@ -7,6 +7,11 @@ from itertools import cycle
 from pathlib import Path
 import subprocess
 
+# Tool paths for external commands
+PROJECT_ROOT = Path(__file__).parent.parent
+TIEFIX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'tiefix')
+HUM2XML_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'hum2xml')
+
 classic_tempos = {
     "grave": 32,
     "largoassai": 40,
@@ -854,12 +859,12 @@ def get_xml_from_target(target,
         if not os.path.exists('temp'):
             os.makedirs('temp')
         kern.save(Path(f'temp/{staff}.krn'))
-        process = subprocess.run(['tiefix', f'temp/{staff}.krn'],
+        process = subprocess.run([TIEFIX_PATH, f'temp/{staff}.krn'],
                                   capture_output=True,
                                   encoding='iso-8859-1')
         kern = Kern(data=process.stdout)
         kern.save(Path(f'temp/{staff}.krn'))
-        os.system(f'hum2xml temp/{staff}.krn >temp/{staff}.xml')
+        os.system(f'{HUM2XML_PATH} temp/{staff}.krn >temp/{staff}.xml')
         score = m21.converter.parse(f'temp/{staff}.xml')
         score[1].partName = 'Piano'
         score[1][0].instrumentName = 'Piano'

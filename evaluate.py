@@ -172,15 +172,18 @@ def get_ER(results_dir):
             os.remove(os.path.join(target_scores_folder, target_file))
 
 if __name__ == '__main__':
-    hparams = load_hyperpyyaml('hparams/finetune.yaml')
+    with open('hparams/finetune.yaml') as fin:
+        hparams = load_hyperpyyaml(fin, {})
     pretrain_output_folder = hparams['pretrained_output_folder']
     finetune_output_folder = hparams['output_folder']
     mv2h_bin = hparams['mv2h_bin']
 
     # Get mv2h for test set
-    get_mv2h_from_test(pretrain_output_folder, 'test', mv2h_bin)
+    # Only process if pretrain results exist
+    if os.path.exists(os.path.join(pretrain_output_folder, 'results', 'test')):
+        get_mv2h_from_test(pretrain_output_folder, 'test', mv2h_bin)
+        summarize_syn_mv2h(pretrain_output_folder, composer='all', soundfont='all', test_split='all')
+
+    # Always process finetune results
     get_mv2h_from_test(finetune_output_folder, 'test', mv2h_bin)
-    
-    # Summarize mv2h
-    summarize_syn_mv2h(pretrain_output_folder, composer='all', soundfont='all', test_split='all')
     summarize_asap_mv2h(finetune_output_folder)
