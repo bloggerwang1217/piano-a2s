@@ -51,7 +51,6 @@ dependencies:
       - lazy-loader==0.4
       - librosa==0.10.1
       - llvmlite==0.42.0
-      - madmom==0.16.1
       - markupsafe==2.1.5
       - matplotlib==3.7.5
       - midi2audio==0.1.1
