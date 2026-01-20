@@ -16,6 +16,13 @@ export CUDA_VISIBLE_DEVICES=$GPU_ID
 cd /home/bloggerwang/piano-a2s
 source ~/miniconda3/bin/activate a2s2024
 
+# Setup logging
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="logs/pipeline_${TIMESTAMP}.log"
+mkdir -p logs
+exec > >(tee -a "$LOG_FILE") 2>&1
+echo "Logging to: $LOG_FILE"
+
 # Add humextra and verovio tools to PATH (AFTER conda activate)
 export PATH=/home/bloggerwang/piano-a2s/humextra/bin:/home/bloggerwang/piano-a2s/verovio/tools:$PATH
 export PYTHONPATH=/home/bloggerwang/piano-a2s:$PYTHONPATH
@@ -65,4 +72,4 @@ echo "  - MusicXML (target): workspace/1234/finetune.epr/results/scores/target/*
 echo "  - MIDI files: workspace/1234/finetune.epr/results/midi/"
 echo "  - MV2H scores: workspace/1234/finetune.epr/results/mv2h/"
 echo ""
-echo "You can now use the MusicXML files for STEPn evaluation!"
+echo "You can now use the MusicXML files for TEDn evaluation!"
