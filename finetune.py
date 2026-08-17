@@ -160,16 +160,20 @@ class ASR(sb.Brain):
             stage_stats["WER_upper"] = wer_upper
             stage_stats["WER_lower"] = wer_lower
             stage_stats["WER"] = (wer_upper + wer_lower) / 2
-            old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
-            sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
-            self.hparams.train_logger.log_stats(
-                stats_meta={"epoch": epoch, "lr": old_lr},
-                train_stats=self.train_stats,
-                valid_stats=stage_stats,
-            )
-            self.checkpointer.save_and_keep_only(
-                meta={"loss": stage_stats["loss"], "WER": stage_stats["WER"]}, min_keys=["WER"],
-            )
+
+            # Only update learning rate and log during training (validation stage)
+            # Skip for test evaluation
+            if hasattr(self, 'optimizer'):
+                old_lr, new_lr = self.hparams.lr_annealing(stage_stats["WER"])
+                sb.nnet.schedulers.update_learning_rate(self.optimizer, new_lr)
+                self.hparams.train_logger.log_stats(
+                    stats_meta={"epoch": epoch, "lr": old_lr},
+                    train_stats=self.train_stats,
+                    valid_stats=stage_stats,
+                )
+                self.checkpointer.save_and_keep_only(
+                    meta={"loss": stage_stats["loss"], "WER": stage_stats["WER"]}, min_keys=["WER"],
+                )
 
             # Save the predictions and targets
             for id in self.upper_pred:
