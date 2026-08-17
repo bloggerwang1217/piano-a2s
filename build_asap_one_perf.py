@@ -27,6 +27,10 @@ def main():
     ap.add_argument('--hparams', default='hparams/finetune.yaml')
     ap.add_argument('--test-list',
                     default='data_processing/metadata/test_asap.txt')
+    # An empty train list keeps a hold-out piece in the test split even when
+    # the repo's own train list happens to name it.
+    ap.add_argument('--train-list',
+                    default='data_processing/metadata/train_asap.txt')
     ap.add_argument('--bt-dir', default=None,
                     help='Beat This! annotations dir; omit for GT downbeats')
     ap.add_argument('--feature-folder', required=True)
@@ -59,6 +63,7 @@ def main():
     # through relative paths.
     process = ProcessASAP(hparams, bt_dir=bt_dir_abs,
                           test_list=args.test_list,
+                          train_list=args.train_list,
                           recordings=[(score_name, perf)])
 
     task_workdir = os.path.join(project_dir, args.workdir, str(args.task_id))

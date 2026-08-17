@@ -28,17 +28,20 @@ TIEFIX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'tiefix')
 class ProcessASAP(object):
     def __init__(self, hparams, bt_dir=None,
                  test_list='data_processing/metadata/test_asap.txt',
+                 train_list='data_processing/metadata/train_asap.txt',
                  recordings=None):
         # bt_dir: path to Beat This! `<score>#<perf>_annotations.txt` files.
         # When set, audio chunks are cut with BT downbeats instead of GT,
         # and the n_measure_score == n_measure_annotation check is skipped.
         # Target (key, time_sig) per bar still come from GT annotation.
         #
-        # recordings: {(score_name, performance)} restricting the build to one
-        # hold-out. An externally defined hold-out names recordings, not piece
-        # folders, and a folder carries performances the hold-out does not
-        # select; when this is given it also decides the split, since a
-        # hold-out piece may sit in train_asap.txt.
+        # test_list / train_list: the two piece lists that decide the split.
+        # Defaults are the lists shipped with this repo; another hold-out
+        # supplies its own pair instead of editing those files.
+        #
+        # recordings: {(score_name, performance)} restricting the build to the
+        # performances an externally defined hold-out names. The split still
+        # comes from the two lists above.
         self.hparams = hparams
         self.asap_folder = hparams["asap_folder"]
         self.feature_folder = hparams["feature_folder"]
@@ -46,7 +49,7 @@ class ProcessASAP(object):
         self.recordings = set(recordings) if recordings is not None else None
         self.folders = self._get_smallest_subdirectories()
         self.train_songs = set([row['name'] for i, row in \
-                                pd.read_csv('data_processing/metadata/train_asap.txt').iterrows()])
+                                pd.read_csv(train_list).iterrows()])
         self.test_songs = set([row['name'] for i, row in \
                                pd.read_csv(test_list).iterrows()])
         self.time_sig_list = load('data_processing/metadata/time_signature_list.json')
@@ -77,8 +80,7 @@ class ProcessASAP(object):
                         if score == score_name}
             if not selected:
                 return []
-            split = 'test'
-        elif score_name in self.train_songs:
+        if score_name in self.train_songs:
             split = 'train'
         elif score_name in self.test_songs:
             split = 'test'
@@ -479,9 +481,12 @@ if __name__ == '__main__':
     ap.add_argument('--test-list',
                     default='data_processing/metadata/test_asap.txt',
                     help='Piece list that defines the test split')
+    ap.add_argument('--train-list',
+                    default='data_processing/metadata/train_asap.txt',
+                    help='Piece list that defines the train split')
     ap.add_argument('--recordings', default=None,
                     help='TSV of score_name/performance rows; restricts the '
-                         'build to those recordings and marks them test')
+                         'build to those recordings')
     args = ap.parse_args()
     with open(args.hparams) as fh:
         hparams = load_hyperpyyaml(fh, {})
@@ -493,5 +498,6 @@ if __name__ == '__main__':
                       for line in open(args.recordings).read().splitlines()
                       if line.strip()]
     process = ProcessASAP(hparams, bt_dir=args.bt_dir,
-                          test_list=args.test_list, recordings=recordings)
+                          test_list=args.test_list,
+                          train_list=args.train_list, recordings=recordings)
     process.process_all()

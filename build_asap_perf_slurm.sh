@@ -30,6 +30,7 @@ export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
 TSV=${TSV:-data_processing/metadata/test_acpas102_perfs.tsv}
 TEST_LIST=${TEST_LIST:-data_processing/metadata/test_acpas102.txt}
+TRAIN_LIST=${TRAIN_LIST:-data_processing/metadata/train_none.txt}
 FEATURE_FOLDER=${FEATURE_FOLDER:-workspace/feature.acpas102}
 BT_DIR=${BT_DIR:-}
 
@@ -37,5 +38,6 @@ python build_asap_one_perf.py \
     --task-id $SLURM_ARRAY_TASK_ID \
     --tsv "$TSV" \
     --test-list "$TEST_LIST" \
+    --train-list "$TRAIN_LIST" \
     --feature-folder "$FEATURE_FOLDER" \
     ${BT_DIR:+--bt-dir "$BT_DIR"}
