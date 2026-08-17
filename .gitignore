@@ -169,9 +169,19 @@ kern/
 xml/
 
 # Workspace and output directories
-workspace/
+# Symlink to scratch storage, so the trailing-slash form never matched it.
+workspace
 *.log
+logs/
 asap_test_set/
 MV2H/
 # Temporary conversion files
 temp/
+temp_workers/
+
+# Vendored upstream checkouts. These are separate repositories pinned by
+# version, and their bin/ holds locally built executables; both are set up
+# by the build steps, not by cloning this one.
+verovio/
+humextra/
+virtuosoNet/
