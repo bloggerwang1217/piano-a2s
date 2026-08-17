@@ -26,20 +26,29 @@ EXTRACTX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'extractx')
 TIEFIX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'tiefix')
 
 class ProcessASAP(object):
-    def __init__(self, hparams, bt_dir=None):
+    def __init__(self, hparams, bt_dir=None,
+                 test_list='data_processing/metadata/test_asap.txt',
+                 recordings=None):
         # bt_dir: path to Beat This! `<score>#<perf>_annotations.txt` files.
         # When set, audio chunks are cut with BT downbeats instead of GT,
         # and the n_measure_score == n_measure_annotation check is skipped.
         # Target (key, time_sig) per bar still come from GT annotation.
+        #
+        # recordings: {(score_name, performance)} restricting the build to one
+        # hold-out. An externally defined hold-out names recordings, not piece
+        # folders, and a folder carries performances the hold-out does not
+        # select; when this is given it also decides the split, since a
+        # hold-out piece may sit in train_asap.txt.
         self.hparams = hparams
         self.asap_folder = hparams["asap_folder"]
         self.feature_folder = hparams["feature_folder"]
         self.bt_dir = Path(bt_dir) if bt_dir else None
+        self.recordings = set(recordings) if recordings is not None else None
         self.folders = self._get_smallest_subdirectories()
         self.train_songs = set([row['name'] for i, row in \
                                 pd.read_csv('data_processing/metadata/train_asap.txt').iterrows()])
         self.test_songs = set([row['name'] for i, row in \
-                               pd.read_csv('data_processing/metadata/test_asap.txt').iterrows()])
+                               pd.read_csv(test_list).iterrows()])
         self.time_sig_list = load('data_processing/metadata/time_signature_list.json')
 
     def process_all(self):
@@ -62,7 +71,14 @@ class ProcessASAP(object):
     def process_one(self, folder):
         # Get score name
         score_name = self._get_score_name_from_folder(folder)
-        if score_name in self.train_songs:
+        selected = None
+        if self.recordings is not None:
+            selected = {perf for score, perf in self.recordings
+                        if score == score_name}
+            if not selected:
+                return []
+            split = 'test'
+        elif score_name in self.train_songs:
             split = 'train'
         elif score_name in self.test_songs:
             split = 'test'
@@ -79,6 +95,13 @@ class ProcessASAP(object):
             chunks.append(chunk)
         # Process performances
         performances = [file[:-4] for file in os.listdir(folder) if file.endswith('.wav')]
+        if selected is not None:
+            missing = selected - set(performances)
+            if missing:
+                raise FileNotFoundError(
+                    f'{score_name}: hold-out recordings absent from the '
+                    f'checkout: {sorted(missing)}')
+            performances = sorted(selected)
         unmatched = []
         for performance in performances:
             # GT annotation always loaded — used for target (key, time_sig) per bar.
@@ -453,10 +476,22 @@ if __name__ == '__main__':
                     help='Beat This! annotations dir; cuts audio with BT downbeats')
     ap.add_argument('--feature-folder', default=None,
                     help='Override feature_folder from hparams')
+    ap.add_argument('--test-list',
+                    default='data_processing/metadata/test_asap.txt',
+                    help='Piece list that defines the test split')
+    ap.add_argument('--recordings', default=None,
+                    help='TSV of score_name/performance rows; restricts the '
+                         'build to those recordings and marks them test')
     args = ap.parse_args()
     with open(args.hparams) as fh:
         hparams = load_hyperpyyaml(fh, {})
     if args.feature_folder:
         hparams['feature_folder'] = args.feature_folder
-    process = ProcessASAP(hparams, bt_dir=args.bt_dir)
+    recordings = None
+    if args.recordings:
+        recordings = [tuple(line.split('\t')[:2])
+                      for line in open(args.recordings).read().splitlines()
+                      if line.strip()]
+    process = ProcessASAP(hparams, bt_dir=args.bt_dir,
+                          test_list=args.test_list, recordings=recordings)
     process.process_all()
