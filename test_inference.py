@@ -13,6 +13,8 @@ Description:
 """
 
 import torch
+import argparse
+from pathlib import Path
 from utilities import load
 from datasets.asap import ASAPDataset
 from models import ScoreTranscription
@@ -22,9 +24,28 @@ import os
 
 
 def main():
-    # Load hyperparameters
-    print("Loading hyperparameters from hparams/finetune.yaml...")
-    hparams = load('hparams/finetune.yaml')
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--hparams', default='hparams/finetune.yaml')
+    ap.add_argument('--checkpoint-dir', default=None,
+                    help='Override save_folder (where CKPT+... lives)')
+    ap.add_argument('--feature-folder', default=None,
+                    help='Override feature_folder (ASAP test data location)')
+    ap.add_argument('--output-folder', default=None,
+                    help='Override output_folder (where results/test/<id>.json goes)')
+    args = ap.parse_args()
+
+    print(f"Loading hyperparameters from {args.hparams}...")
+    hparams = load(args.hparams)
+    if args.checkpoint_dir:
+        ckpt_abs = Path(args.checkpoint_dir).resolve()
+        hparams['checkpointer'].checkpoints_dir = ckpt_abs
+        hparams['save_folder'] = str(ckpt_abs)
+    if args.feature_folder:
+        hparams['feature_folder'] = os.path.abspath(args.feature_folder)
+    if args.output_folder:
+        hparams['output_folder'] = os.path.abspath(args.output_folder)
+        os.makedirs(os.path.join(hparams['output_folder'], 'results', 'test'),
+                    exist_ok=True)
 
     # Set device (speechbrain expects string, not torch.device)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
