@@ -26,10 +26,15 @@ EXTRACTX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'extractx')
 TIEFIX_PATH = str(PROJECT_ROOT / 'humextra' / 'bin' / 'tiefix')
 
 class ProcessASAP(object):
-    def __init__(self, hparams):
+    def __init__(self, hparams, bt_dir=None):
+        # bt_dir: path to Beat This! `<score>#<perf>_annotations.txt` files.
+        # When set, audio chunks are cut with BT downbeats instead of GT,
+        # and the n_measure_score == n_measure_annotation check is skipped.
+        # Target (key, time_sig) per bar still come from GT annotation.
         self.hparams = hparams
         self.asap_folder = hparams["asap_folder"]
         self.feature_folder = hparams["feature_folder"]
+        self.bt_dir = Path(bt_dir) if bt_dir else None
         self.folders = self._get_smallest_subdirectories()
         self.train_songs = set([row['name'] for i, row in \
                                 pd.read_csv('data_processing/metadata/train_asap.txt').iterrows()])
@@ -76,16 +81,28 @@ class ProcessASAP(object):
         performances = [file[:-4] for file in os.listdir(folder) if file.endswith('.wav')]
         unmatched = []
         for performance in performances:
-            # Check if number of measures match
+            # GT annotation always loaded — used for target (key, time_sig) per bar.
             anno_file = os.path.join(folder, f'{performance}_annotations.txt')
-            upbeat, downbeats = self._get_anno_downbeats(anno_file)
-            n_measure_annotation = len(downbeats) if upbeat else len(downbeats) - 1
-            if n_measure_score != n_measure_annotation:
-                unmatched.append('#'.join([score_name, performance]))
-                continue
+            upbeat, gt_downbeats = self._get_anno_downbeats(anno_file)
+
+            if self.bt_dir is None:
+                # GT mode: original behavior. Use GT downbeats for cutting too.
+                cut_downbeats = gt_downbeats
+                n_measure_annotation = len(gt_downbeats) if upbeat else len(gt_downbeats) - 1
+                if n_measure_score != n_measure_annotation:
+                    unmatched.append('#'.join([score_name, performance]))
+                    continue
+            else:
+                # BT mode: cut with BT downbeats, no count check.
+                bt_anno = self.bt_dir / f'{score_name}#{performance}_annotations.txt'
+                if not bt_anno.exists():
+                    unmatched.append(f'{score_name}#{performance}#missing_bt')
+                    continue
+                _, cut_downbeats = self._get_anno_downbeats(str(bt_anno))
+
             feature_folder = os.path.join(self.feature_folder, split)
             audio, sample_rate = torchaudio.load(os.path.join(folder, f'{performance}.wav'))
-            
+
             # Convert to mono
             if audio.shape[0] > 1:
                 audio = torch.mean(audio, dim=0, keepdim=True)
@@ -94,7 +111,13 @@ class ProcessASAP(object):
 
             # Cut and save
             for i, chunk in enumerate(chunks):
-                if upbeat and i == 0: continue
+                if self.bt_dir is None and upbeat and i == 0: continue
+                # Bounds: need cut_downbeats[i+1..i+6] for audio,
+                # gt_downbeats[i+1..i+5] for target (key, time_sig).
+                if i + 6 >= len(cut_downbeats):
+                    break
+                if i + 5 >= len(gt_downbeats):
+                    break
                 wav_path = os.path.join(feature_folder, 'wav', f'{score_name}#{performance}.{i}.wav')
                 xml_path = os.path.join(feature_folder, 'xml', f'{score_name}#{performance}.{i}.xml')
                 kern_path = os.path.join(feature_folder, 'kern', f'{score_name}#{performance}.{i}.krn')
@@ -106,9 +129,9 @@ class ProcessASAP(object):
                 if os.path.exists(target_path):
                     continue
 
-                # Save wav
+                # Save wav (cut with cut_downbeats — GT in normal mode, BT in bt_dir mode)
                 try:
-                    chunk_audio = audio[:, int(downbeats[i+1][0] * sample_rate): int(downbeats[i+6][0] * sample_rate)]
+                    chunk_audio = audio[:, int(cut_downbeats[i+1][0] * sample_rate): int(cut_downbeats[i+6][0] * sample_rate)]
                     # Audio lenght must not exceed 12 seconds
                     if chunk_audio.shape[1] > 12 * sample_rate or chunk_audio.shape[1] < 4 * sample_rate:
                         continue
@@ -195,9 +218,9 @@ class ProcessASAP(object):
                     lower, upper = lower.split('\n=\n'), upper.split('\n=\n')
                     target = []
                     for m in range(5):
-                        # Get key and time signature
-                        current_key = int(downbeats[i+1+m][1])
-                        current_time = downbeats[i+1+m][2]
+                        # Get key and time signature (always from GT annotation)
+                        current_key = int(gt_downbeats[i+1+m][1])
+                        current_time = gt_downbeats[i+1+m][2]
                         if current_time not in self.time_sig_list:
                             target = []
                             break
@@ -422,6 +445,18 @@ def unpad(full_seq):
 
 
 if __name__ == '__main__':
-    hparams = load('hparams/finetune.yaml')
-    process = ProcessASAP(hparams)
+    import argparse
+    from hyperpyyaml import load_hyperpyyaml
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--hparams', default='hparams/finetune.yaml')
+    ap.add_argument('--bt-dir', default=None,
+                    help='Beat This! annotations dir; cuts audio with BT downbeats')
+    ap.add_argument('--feature-folder', default=None,
+                    help='Override feature_folder from hparams')
+    args = ap.parse_args()
+    with open(args.hparams) as fh:
+        hparams = load_hyperpyyaml(fh, {})
+    if args.feature_folder:
+        hparams['feature_folder'] = args.feature_folder
+    process = ProcessASAP(hparams, bt_dir=args.bt_dir)
     process.process_all()
