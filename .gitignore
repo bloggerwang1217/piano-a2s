@@ -185,3 +185,6 @@ temp_workers/
 verovio/
 humextra/
 virtuosoNet/
+
+# Machine-local paths; env.sh.example is the committed template.
+env.sh

@@ -13,8 +13,11 @@ GPU_ID=${1:-0}
 START_STEP=${2:-1}
 export CUDA_VISIBLE_DEVICES=$GPU_ID
 
-cd /home/bloggerwang/piano-a2s
-source ~/miniconda3/bin/activate a2s2024
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
+
+cd "$PROJECT_ROOT"
+source "$CONDA_SH"
+conda activate "$CONDA_ENV"
 
 # Setup logging
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -24,8 +27,8 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 echo "Logging to: $LOG_FILE"
 
 # Add humextra and verovio tools to PATH (AFTER conda activate)
-export PATH=/home/bloggerwang/piano-a2s/humextra/bin:/home/bloggerwang/piano-a2s/verovio/tools:$PATH
-export PYTHONPATH=/home/bloggerwang/piano-a2s:$PYTHONPATH
+export PATH="$PROJECT_ROOT/humextra/bin:$PROJECT_ROOT/verovio/tools:$PATH"
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 
 echo "================================================"
 echo "Starting Full ASAP Test Pipeline"
