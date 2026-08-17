@@ -12,7 +12,14 @@
 # downbeats; set BT_DIR to cut on Beat This! downbeats instead. Keep --array
 # in step with the row count of TSV.
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
+set -eo pipefail
+
+# sbatch executes a spooled copy of this file, so BASH_SOURCE points into
+# /var/spool and cannot locate env.sh; SLURM_SUBMIT_DIR is where sbatch ran.
+# set -e above matters: without it a missing env.sh used to fall through to the
+# system python.
+ROOT="${PIANO_A2S_ROOT:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}}"
+source "$ROOT/env.sh"
 
 source "$CONDA_SH"
 conda activate "$CONDA_ENV"

@@ -8,7 +8,11 @@
 #SBATCH --output=logs/slurm/mv2h_%A_%a.out
 #SBATCH --error=logs/slurm/mv2h_%A_%a.err
 
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/env.sh"
+set -eo pipefail
+
+# sbatch runs a spooled copy, so BASH_SOURCE cannot locate env.sh.
+ROOT="${PIANO_A2S_ROOT:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}}"
+source "$ROOT/env.sh"
 
 source "$CONDA_SH"
 conda activate "$CONDA_ENV"
