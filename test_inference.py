@@ -79,10 +79,8 @@ def main():
     )
 
     print(f"\nEvaluation complete! Results saved to {hparams['output_folder']}/results/test/")
-    print(f"\nNext steps:")
-    print(f"1. Run: python evaluate.py")
-    print(f"   This will generate MusicXML files in {hparams['output_folder']}/results/scores/")
-    print(f"2. Use the generated MusicXML files for STEPn evaluation")
+    print(f"\nNext steps: Run python evaluate.py")
+    print(f".  This will generate MusicXML files in {hparams['output_folder']}/results/scores/")
 
 
 if __name__ == "__main__":

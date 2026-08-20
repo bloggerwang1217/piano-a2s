@@ -35,17 +35,25 @@ def process_chunk(id, result_data, results_dir, task_dir, mv2h_bin, eval_script)
     if os.path.exists(mv2h_path):
         return 'cached'
 
-    # Convert to XML/MIDI
+    # A cached target is immutable across model runs. Materialize a missing
+    # target before touching the prediction so prediction conversion cannot
+    # prevent the reference artifact from being written.
+    if not os.path.exists(target_midi_path):
+        try:
+            target = get_xml_from_target(load(result_data['target_path']))
+            target.write('musicxml', target_xml_path)
+            target.write('midi', target_midi_path)
+        except Exception as e:
+            logger.warning(f"gt_conversion_error [{id}]: {type(e).__name__}: {e}")
+            return 'gt_conversion_error'
+
     try:
         pred = get_xml_from_target(result_data['pred'])
         pred.write('musicxml', pred_xml_path)
         pred.write('midi', pred_midi_path)
-        target = get_xml_from_target(load(result_data['target_path']))
-        target.write('musicxml', target_xml_path)
-        target.write('midi', target_midi_path)
     except Exception as e:
-        logger.warning(f"conversion_error [{id}]: {type(e).__name__}: {e}")
-        return 'conversion_error'
+        logger.warning(f"pred_conversion_error [{id}]: {type(e).__name__}: {e}")
+        return 'pred_conversion_error'
 
     # Run MV2H
     try:
