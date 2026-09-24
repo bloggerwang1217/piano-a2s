@@ -64,7 +64,7 @@ def process_chunk(id, result_data, results_dir, task_dir, mv2h_bin, eval_script)
             start_new_session=True
         )
         try:
-            output, stderr = proc.communicate(timeout=10)
+            output, stderr = proc.communicate(timeout=int(os.environ.get('MV2H_TIMEOUT', 300)))
         except subprocess.TimeoutExpired:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
             proc.wait()
@@ -95,6 +95,10 @@ def process_chunk(id, result_data, results_dir, task_dir, mv2h_bin, eval_script)
 
     if mv2h_result['MV2H'] == 0:
         logger.warning(f"zero_mv2h [{id}]")
+        # A zero is still a score MV2H returned; keeping its file lets a
+        # caller count the window as evaluated.
+        if os.environ.get('MV2H_KEEP_ZERO') == '1':
+            save(mv2h_result, mv2h_path)
         return 'zero_mv2h'
 
     save(mv2h_result, mv2h_path)
